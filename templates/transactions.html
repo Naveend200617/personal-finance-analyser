@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Transactions{% endblock %}
+{% block page_heading %}All Transactions{% endblock %}
+{% block content %}
+<div class="container-fluid px-0">
+  <div class="pw-card">
+    <div class="card-header"><i class="fa-solid fa-right-left me-2 text-primary"></i>Transaction History</div>
+    <div class="card-body">
+      <!-- Filters -->
+      <form method="GET" class="row g-2 mb-3">
+        <div class="col-md-2">
+          <input type="text" name="q" class="form-control" placeholder="Search…" value="{{ q }}">
+        </div>
+        <div class="col-md-2">
+          <select name="type" class="form-select">
+            <option value="">All types</option>
+            <option value="income" {{ 'selected' if ttype == 'income' }}>Income</option>
+            <option value="expense" {{ 'selected' if ttype == 'expense' }}>Expense</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <select name="category" class="form-select">
+            <option value="">All categories</option>
+            <optgroup label="Income">
+              {% for c in income_categories %}<option value="{{ c }}" {{ 'selected' if c == category }}>{{ c }}</option>{% endfor %}
+            </optgroup>
+            <optgroup label="Expense">
+              {% for c in expense_categories %}<option value="{{ c }}" {{ 'selected' if c == category }}>{{ c }}</option>{% endfor %}
+            </optgroup>
+          </select>
+        </div>
+        <div class="col-md-2"><input type="date" name="start" class="form-control" value="{{ start }}" title="From date"></div>
+        <div class="col-md-2"><input type="date" name="end" class="form-control" value="{{ end }}" title="To date"></div>
+        <div class="col-md-2 d-grid"><button class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Apply</button></div>
+      </form>
+
+      <!-- Sort controls -->
+      <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+        <span class="text-muted small fw-semibold">Sort by:</span>
+        <a class="btn btn-sm btn-outline-primary {{ 'active' if sort == 'date' }}"
+           href="{{ url_for('transactions.index', q=q, type=ttype, category=category, start=start, end=end, sort='date', order='desc' if order == 'asc' else 'asc') }}">
+          Date <i class="fa-solid fa-sort-{{ 'up' if sort == 'date' and order == 'asc' else 'down' }}"></i>
+        </a>
+        <a class="btn btn-sm btn-outline-primary {{ 'active' if sort == 'amount' }}"
+           href="{{ url_for('transactions.index', q=q, type=ttype, category=category, start=start, end=end, sort='amount', order='desc' if order == 'asc' else 'asc') }}">
+          Amount <i class="fa-solid fa-sort-{{ 'up' if sort == 'amount' and order == 'asc' else 'down' }}"></i>
+        </a>
+        <a href="{{ url_for('transactions.index') }}" class="btn btn-sm btn-outline-secondary ms-auto">
+          <i class="fa-solid fa-rotate-left me-1"></i>Reset
+        </a>
+      </div>
+
+      {% if rows %}
+      <div class="table-responsive">
+        <table class="table table-pw table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Date</th><th>Title</th><th>Type</th><th>Category</th>
+              <th>Description</th><th class="text-end">Amount</th><th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for t in rows %}
+            <tr>
+              <td class="text-muted text-nowrap">{{ t.transaction_date.strftime('%d %b %Y') }}</td>
+              <td class="fw-semibold">{{ t.title }}</td>
+              <td>
+                {% if t.transaction_type == 'income' %}
+                  <span class="badge badge-pw-inc rounded-pill">Income</span>
+                {% else %}
+                  <span class="badge badge-pw-exp rounded-pill">Expense</span>
+                {% endif %}
+              </td>
+              <td><span class="badge badge-cat rounded-pill">{{ t.category }}</span></td>
+              <td class="text-muted small" style="max-width:220px;">{{ t.description or '—' }}</td>
+              <td class="text-end text-nowrap {{ 'amt-inc' if t.transaction_type == 'income' else 'amt-exp' }}">
+                {{ '+' if t.transaction_type == 'income' else '−' }}{{ t.amount|inr }}
+              </td>
+              <td class="text-end text-nowrap">
+                <button class="btn btn-outline-info btn-icon" data-bs-toggle="modal" data-bs-target="#viewModal{{ t.id }}"><i class="fa-solid fa-eye"></i></button>
+                <button class="btn btn-outline-primary btn-icon" data-bs-toggle="modal" data-bs-target="#editModal{{ t.id }}"><i class="fa-solid fa-pen"></i></button>
+                <button class="btn btn-outline-danger btn-icon" data-bs-toggle="modal" data-bs-target="#delModal{{ t.id }}"><i class="fa-solid fa-trash"></i></button>
+              </td>
+            </tr>
+
+            <!-- View modal -->
+            <div class="modal fade" id="viewModal{{ t.id }}" tabindex="-1">
+              <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Transaction details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body">
+                    <p class="mb-1"><strong>Title:</strong> {{ t.title }}</p>
+                    <p class="mb-1"><strong>Type:</strong> {{ t.transaction_type.capitalize() }}</p>
+                    <p class="mb-1"><strong>Category:</strong> {{ t.category }}</p>
+                    <p class="mb-1"><strong>Amount:</strong> {{ t.amount|inr }}</p>
+                    <p class="mb-1"><strong>Date:</strong> {{ t.transaction_date.strftime('%d %B %Y') }}</p>
+                    <p class="mb-0"><strong>Description:</strong> {{ t.description or '—' }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Edit modal -->
+            <div class="modal fade" id="editModal{{ t.id }}" tabindex="-1">
+              <div class="modal-dialog">
+                <form method="POST" action="{{ url_for('transactions.edit', txn_id=t.id) }}" class="modal-content">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Edit Transaction</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold">Type</label>
+                      <select name="transaction_type" class="form-select" data-cattoggle
+                              data-cattarget="#cat{{ t.id }}"
+                              data-income='{{ income_categories | tojson }}'
+                              data-expense='{{ expense_categories | tojson }}'>
+                        <option value="income" {{ 'selected' if t.transaction_type == 'income' }}>Income</option>
+                        <option value="expense" {{ 'selected' if t.transaction_type == 'expense' }}>Expense</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold">Title</label>
+                      <input type="text" name="title" class="form-control" value="{{ t.title }}" required>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold">Category</label>
+                      <select name="category" class="form-select" id="cat{{ t.id }}">
+                        {% set cats = income_categories if t.transaction_type == 'income' else expense_categories %}
+                        {% for c in cats %}<option value="{{ c }}" {{ 'selected' if c == t.category }}>{{ c }}</option>{% endfor %}
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold">Amount (₹)</label>
+                      <input type="number" name="amount" class="form-control" step="0.01" min="0.01" value="{{ '%.2f' % t.amount }}" required>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label fw-semibold">Date</label>
+                      <input type="date" name="date" class="form-control" value="{{ t.transaction_date.isoformat() }}" required>
+                    </div>
+                    <div class="mb-0">
+                      <label class="form-label fw-semibold">Description</label>
+                      <textarea name="description" class="form-control" rows="2">{{ t.description or '' }}</textarea>
+                    </div>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save changes</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- Delete modal -->
+            <div class="modal fade" id="delModal{{ t.id }}" tabindex="-1">
+              <div class="modal-dialog modal-sm">
+                <form method="POST" action="{{ url_for('transactions.delete', txn_id=t.id) }}" class="modal-content">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <div class="modal-header"><h5 class="modal-title">Delete transaction?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                  <div class="modal-body"><p class="mb-0">Delete <strong>{{ t.title }}</strong> ({{ t.amount|inr }})? This cannot be undone.</p></div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-danger"><i class="fa-solid fa-trash me-1"></i>Delete</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="fa-solid fa-right-left"></i>
+        No transactions match your filters.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

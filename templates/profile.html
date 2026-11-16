@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+{% block page_heading %}My Profile{% endblock %}
+{% block content %}
+<div class="container-fluid px-0">
+  <div class="row justify-content-center">
+    <div class="col-lg-6">
+      <div class="pw-card">
+        <div class="card-header"><i class="fa-solid fa-user me-2 text-primary"></i>Profile details</div>
+        <div class="card-body">
+          <div class="text-center mb-4">
+            <div class="rounded-circle mx-auto d-flex align-items-center justify-content-center"
+                 style="width:88px;height:88px;font-size:2rem;color:#fff;background:linear-gradient(135deg,#6366f1,#a855f7);">
+              <i class="fa-solid fa-user"></i>
+            </div>
+            <h4 class="fw-bold mt-3 mb-0">{{ user.name }}</h4>
+            <p class="text-muted">{{ user.email }}</p>
+          </div>
+          <table class="table table-sm">
+            <tr>
+              <th class="text-muted fw-semibold" style="width:45%;">Member since</th>
+              <td>{{ user.created_at.strftime('%d %B %Y') }}</td>
+            </tr>
+            <tr>
+              <th class="text-muted fw-semibold">Total transactions recorded</th>
+              <td>{{ txn_count }}</td>
+            </tr>
+          </table>
+          <div class="alert alert-info mt-3 mb-0">
+            <i class="fa-solid fa-lock me-2"></i>
+            Your password is stored securely using Werkzeug PBKDF2 hashing and is never displayed anywhere.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

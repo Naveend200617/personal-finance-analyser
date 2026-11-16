@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+{% block content %}
+<div class="hero-landing">
+  <div class="container text-center py-5">
+    <div class="display-5 fw-bold mb-2">
+      <i class="fa-solid fa-wallet me-2"></i>PocketWise
+    </div>
+    <p class="lead opacity-75 mb-4 mx-auto" style="max-width:560px;">
+      Your smart personal finance companion. Track income, control expenses,
+      set monthly budgets and understand your spending — all in one place.
+    </p>
+    <div class="d-flex gap-3 justify-content-center">
+      <a href="{{ url_for('auth.register') }}" class="btn btn-light btn-lg px-4 fw-bold text-primary">
+        <i class="fa-solid fa-user-plus me-2"></i>Get Started
+      </a>
+      <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-lg px-4 fw-bold">
+        <i class="fa-solid fa-right-to-bracket me-2"></i>Login
+      </a>
+    </div>
+    <div class="row g-4 mt-5 text-start">
+      <div class="col-md-4">
+        <div class="p-4 rounded-4 h-100" style="background:rgba(255,255,255,.12);">
+          <i class="fa-solid fa-arrow-trend-up fs-3 mb-3"></i>
+          <h5 class="fw-bold">Track Money</h5>
+          <p class="opacity-75 mb-0 small">Record income and daily expenses with categories and dates.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-4 rounded-4 h-100" style="background:rgba(255,255,255,.12);">
+          <i class="fa-solid fa-bullseye fs-3 mb-3"></i>
+          <h5 class="fw-bold">Set Budgets</h5>
+          <p class="opacity-75 mb-0 small">Monthly and category-wise budgets with usage warnings.</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-4 rounded-4 h-100" style="background:rgba(255,255,255,.12);">
+          <i class="fa-solid fa-chart-pie fs-3 mb-3"></i>
+          <h5 class="fw-bold">Visual Reports</h5>
+          <p class="opacity-75 mb-0 small">Interactive charts, PDF reports and CSV exports.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

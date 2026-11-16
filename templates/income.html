@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Income{% endblock %}
+{% block page_heading %}Income Management{% endblock %}
+{% block content %}
+<div class="container-fluid px-0">
+  <div class="row g-4">
+    <!-- Add income form -->
+    <div class="col-lg-4">
+      <div class="pw-card">
+        <div class="card-header"><i class="fa-solid fa-circle-plus me-2 text-success"></i>Add Income</div>
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('income.add') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Title</label>
+              <input type="text" name="title" class="form-control" placeholder="e.g. October salary" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Category</label>
+              <select name="category" class="form-select" required>
+                {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Amount (₹)</label>
+              <input type="number" name="amount" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Date</label>
+              <input type="date" name="date" class="form-control" value="{{ now_date }}" max="{{ now_date }}" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Description <small class="text-muted">(optional)</small></label>
+              <textarea name="description" class="form-control" rows="2" placeholder="Notes…"></textarea>
+            </div>
+            <button class="btn btn-gradient w-100"><i class="fa-solid fa-plus me-2"></i>Add Income</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Income list -->
+    <div class="col-lg-8">
+      <div class="pw-card">
+        <div class="card-header d-flex flex-wrap gap-2 justify-content-between align-items-center">
+          <span><i class="fa-solid fa-list me-2 text-primary"></i>Income Records</span>
+          <span class="badge badge-pw-inc rounded-pill px-3 py-2">Total: {{ total|inr }}</span>
+        </div>
+        <div class="card-body">
+          <!-- Search & filter -->
+          <form method="GET" class="row g-2 mb-3">
+            <div class="col-md-5">
+              <div class="input-group">
+                <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                <input type="text" name="q" class="form-control" placeholder="Search income…" value="{{ q }}">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <select name="category" class="form-select">
+                <option value="">All categories</option>
+                {% for c in categories %}
+                <option value="{{ c }}" {{ 'selected' if c == category }}>{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3 d-grid">
+              <button class="btn btn-primary"><i class="fa-solid fa-filter me-1"></i>Filter</button>
+            </div>
+          </form>
+
+          {% if rows %}
+          <div class="table-responsive">
+            <table class="table table-pw table-hover align-middle">
+              <thead>
+                <tr><th>Date</th><th>Title</th><th>Category</th><th class="text-end">Amount</th><th class="text-end">Actions</th></tr>
+              </thead>
+              <tbody>
+              {% for t in rows %}
+                <tr>
+                  <td class="text-muted">{{ t.transaction_date.strftime('%d %b %Y') }}</td>
+                  <td>
+                    <div class="fw-semibold">{{ t.title }}</div>
+                    {% if t.description %}<small class="text-muted">{{ t.description }}</small>{% endif %}
+                  </td>
+                  <td><span class="badge badge-cat rounded-pill">{{ t.category }}</span></td>
+                  <td class="text-end amt-inc">+{{ t.amount|inr }}</td>
+                  <td class="text-end text-nowrap">
+                    <button class="btn btn-outline-primary btn-icon" data-bs-toggle="modal"
+                            data-bs-target="#editModal{{ t.id }}"><i class="fa-solid fa-pen"></i></button>
+                    <button class="btn btn-outline-danger btn-icon" data-bs-toggle="modal"
+                            data-bs-target="#delModal{{ t.id }}"><i class="fa-solid fa-trash"></i></button>
+                  </td>
+                </tr>
+
+                <!-- Edit modal -->
+                <div class="modal fade" id="editModal{{ t.id }}" tabindex="-1">
+                  <div class="modal-dialog">
+                    <form method="POST" action="{{ url_for('income.edit', txn_id=t.id) }}" class="modal-content">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <div class="modal-header">
+                        <h5 class="modal-title">Edit Income</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                      </div>
+                      <div class="modal-body">
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Title</label>
+                          <input type="text" name="title" class="form-control" value="{{ t.title }}" required>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Category</label>
+                          <select name="category" class="form-select">
+                            {% for c in categories %}<option value="{{ c }}" {{ 'selected' if c == t.category }}>{{ c }}</option>{% endfor %}
+                          </select>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Amount (₹)</label>
+                          <input type="number" name="amount" class="form-control" step="0.01" min="0.01"
+                                 value="{{ '%.2f' % t.amount }}" required>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Date</label>
+                          <input type="date" name="date" class="form-control" value="{{ t.transaction_date.isoformat() }}" required>
+                        </div>
+                        <div class="mb-0">
+                          <label class="form-label fw-semibold">Description</label>
+                          <textarea name="description" class="form-control" rows="2">{{ t.description or '' }}</textarea>
+                        </div>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Save changes</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- Delete modal -->
+                <div class="modal fade" id="delModal{{ t.id }}" tabindex="-1">
+                  <div class="modal-dialog modal-sm">
+                    <form method="POST" action="{{ url_for('income.delete', txn_id=t.id) }}" class="modal-content">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <div class="modal-header"><h5 class="modal-title">Delete record?</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                      <div class="modal-body">
+                        <p class="mb-0">Delete <strong>{{ t.title }}</strong> ({{ t.amount|inr }})?
+                        This cannot be undone.</p>
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button class="btn btn-danger"><i class="fa-solid fa-trash me-1"></i>Delete</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <i class="fa-solid fa-arrow-trend-up"></i>
+            No income records found. Add your first income using the form.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block page_heading %}Reports & Analytics{% endblock %}
+{% block content %}
+<div class="container-fluid px-0">
+
+  <!-- Period selector + exports -->
+  <div class="pw-card mb-4">
+    <div class="card-body d-flex flex-wrap gap-3 align-items-end">
+      <form method="GET" class="row g-2 align-items-end">
+        <div>
+          <label class="form-label fw-semibold mb-1 small">Month</label>
+          <select name="month" class="form-select">
+            {% for m in range(1, 13) %}
+            <option value="{{ m }}" {{ 'selected' if m == month }}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="form-label fw-semibold mb-1 small">Year</label>
+          <input type="number" name="year" class="form-control" value="{{ year }}" min="2000" max="2100" style="width:110px;">
+        </div>
+        <div><button class="btn btn-primary"><i class="fa-solid fa-rotate me-1"></i>Update report</button></div>
+      </form>
+      <div class="ms-auto d-flex gap-2">
+        <a href="{{ url_for('reports.export_csv', month=month, year=year) }}" class="btn btn-outline-success">
+          <i class="fa-solid fa-file-csv me-1"></i>Export CSV
+        </a>
+        <a href="{{ url_for('reports.export_pdf', month=month, year=year) }}" class="btn btn-outline-danger">
+          <i class="fa-solid fa-file-pdf me-1"></i>Download PDF
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="stat-icon green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+        <div><div class="stat-label">Income — {{ month_name }}</div>
+        <div class="stat-value amt-inc">{{ income|inr }}</div></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="stat-icon red"><i class="fa-solid fa-arrow-trend-down"></i></div>
+        <div><div class="stat-label">Expense — {{ month_name }}</div>
+        <div class="stat-value amt-exp">{{ expense|inr }}</div></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="stat-card">
+        <div class="stat-icon sky"><i class="fa-solid fa-piggy-bank"></i></div>
+        <div><div class="stat-label">Savings — {{ month_name }}</div>
+        <div class="stat-value {{ 'text-success' if savings >= 0 else 'text-danger' }}">{{ savings|inr }}</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-4 mb-4">
+    <div class="col-lg-7">
+      <div class="pw-card h-100">
+        <div class="card-header"><i class="fa-solid fa-chart-line me-2 text-primary"></i>Income vs Expense trend — {{ year }}</div>
+        <div class="card-body"><canvas id="trendChart" height="140"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="pw-card h-100">
+        <div class="card-header"><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Expense split — {{ month_name }}</div>
+        <div class="card-body">
+          {% if chart_values %}
+            <canvas id="expenseSplit" height="220"></canvas>
+          {% else %}
+            <div class="empty-state"><i class="fa-solid fa-chart-pie"></i>No expenses in this period.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category breakdown tables -->
+  <div class="row g-4 mb-4">
+    <div class="col-md-6">
+      <div class="pw-card h-100">
+        <div class="card-header"><i class="fa-solid fa-list me-2 text-danger"></i>Expense breakdown</div>
+        <div class="card-body p-0">
+          {% if cat_rows %}
+          <div class="table-responsive">
+            <table class="table table-pw mb-0">
+              <thead><tr><th>Category</th><th class="text-end">Amount</th><th class="text-end">Share</th></tr></thead>
+              <tbody>
+              {% for name, amt in cat_rows %}
+                <tr>
+                  <td><span class="badge badge-cat rounded-pill">{{ name }}</span></td>
+                  <td class="text-end amt-exp">{{ amt|inr }}</td>
+                  <td class="text-end text-muted">{{ '%.1f' % (amt / expense * 100 if expense else 0) }}%</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+            <div class="empty-state"><i class="fa-solid fa-arrow-trend-down"></i>No expense data.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="pw-card h-100">
+        <div class="card-header"><i class="fa-solid fa-list me-2 text-success"></i>Income sources</div>
+        <div class="card-body p-0">
+          {% if income_cat_rows %}
+          <div class="table-responsive">
+            <table class="table table-pw mb-0">
+              <thead><tr><th>Category</th><th class="text-end">Amount</th><th class="text-end">Share</th></tr></thead>
+              <tbody>
+              {% for name, amt in income_cat_rows %}
+                <tr>
+                  <td><span class="badge badge-cat rounded-pill">{{ name }}</span></td>
+                  <td class="text-end amt-inc">{{ amt|inr }}</td>
+                  <td class="text-end text-muted">{{ '%.1f' % (amt / income * 100 if income else 0) }}%</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+            <div class="empty-state"><i class="fa-solid fa-arrow-trend-up"></i>No income recorded this month.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction list for period -->
+  <div class="row">
+    <div class="col-12">
+      <div class="pw-card">
+        <div class="card-header"><i class="fa-solid fa-table me-2 text-primary"></i>Transactions in {{ month_name }}
+          <span class="badge badge-cat rounded-pill ms-2">{{ txns|length }} records</span></div>
+        <div class="card-body p-0">
+          {% if txns %}
+          <div class="table-responsive">
+            <table class="table table-pw table-hover mb-0">
+              <thead>
+                <tr><th>Date</th><th>Title</th><th>Type</th><th>Category</th><th class="text-end">Amount</th></tr>
+              </thead>
+              <tbody>
+              {% for t in txns %}
+                <tr>
+                  <td class="text-muted text-nowrap">{{ t.transaction_date.strftime('%d %b %Y') }}</td>
+                  <td class="fw-semibold">{{ t.title }}</td>
+                  <td>
+                    {% if t.transaction_type == 'income' %}
+                      <span class="badge badge-pw-inc rounded-pill">Income</span>
+                    {% else %}
+                      <span class="badge badge-pw-exp rounded-pill">Expense</span>
+                    {% endif %}
+                  </td>
+                  <td><span class="badge badge-cat rounded-pill">{{ t.category }}</span></td>
+                  <td class="text-end {{ 'amt-inc' if t.transaction_type == 'income' else 'amt-exp' }}">
+                    {{ '+' if t.transaction_type == 'income' else '−' }}{{ t.amount|inr }}
+                  </td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state"><i class="fa-solid fa-table"></i>No transactions this month.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const pwColors2 = ["#6366f1", "#8b5cf6", "#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#14b8a6", "#ec4899", "#84cc16", "#f97316"];
+
+new Chart(document.getElementById("trendChart"), {
+  type: "line",
+  data: {
+    labels: {{ trend_labels | tojson }},
+    datasets: [
+      { label: "Income", data: {{ trend_income | tojson }},
+        borderColor: "#22c55e", backgroundColor: "rgba(34,197,94,.12)", fill: true, tension: .35 },
+      { label: "Expenses", data: {{ trend_expense | tojson }},
+        borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,.10)", fill: true, tension: .35 }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: "bottom" } },
+    scales: { y: { beginAtZero: true, ticks: { callback: v => "₹" + v.toLocaleString("en-IN") } } }
+  }
+});
+
+{% if chart_values %}
+new Chart(document.getElementById("expenseSplit"), {
+  type: "doughnut",
+  data: {
+    labels: {{ chart_labels | tojson }},
+    datasets: [{ data: {{ chart_values | tojson }},
+      backgroundColor: pwColors2.slice(0, {{ chart_labels | length }}),
+      borderWidth: 2, borderColor: "#fff" }]
+  },
+  options: { responsive: true, plugins: { legend: { position: "bottom" } }, cutout: "60%" }
+});
+{% endif %}
+</script>
+{% endblock %}

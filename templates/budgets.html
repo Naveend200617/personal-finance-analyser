@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Budgets{% endblock %}
+{% block page_heading %}Budget Management{% endblock %}
+{% block content %}
+<div class="container-fluid px-0">
+  <div class="row g-4">
+    <!-- Set budget -->
+    <div class="col-lg-4">
+      <div class="pw-card">
+        <div class="card-header"><i class="fa-solid fa-bullseye me-2 text-primary"></i>Set Monthly Budget</div>
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('budgets.add') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Category</label>
+              <select name="category" class="form-select" required>
+                {% for c in categories %}
+                <option value="{{ c }}">{{ c }}{{ ' (total spending)' if c == 'Overall' }}</option>
+                {% endfor %}
+              </select>
+              <small class="text-muted">“Overall” covers all expenses; other categories track that expense category.</small>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label fw-semibold">Month</label>
+                <select name="month" class="form-select" required>
+                  {% for m in range(1, 13) %}
+                  <option value="{{ m }}" {{ 'selected' if m == month }}>{{ m }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold">Year</label>
+                <input type="number" name="year" class="form-control" min="2000" max="2100" value="{{ year }}" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Monthly limit (₹)</label>
+              <input type="number" name="monthly_limit" class="form-control" step="0.01" min="0.01" placeholder="e.g. 20000" required>
+            </div>
+            <button class="btn btn-gradient w-100"><i class="fa-solid fa-check me-2"></i>Save Budget</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Period switcher -->
+      <div class="pw-card mt-4">
+        <div class="card-header"><i class="fa-solid fa-calendar me-2 text-primary"></i>Viewing period</div>
+        <div class="card-body">
+          <form method="GET" class="row g-2">
+            <div class="col-5">
+              <select name="month" class="form-select">
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {{ 'selected' if m == month }}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-4">
+              <input type="number" name="year" class="form-control" value="{{ year }}" min="2000" max="2100">
+            </div>
+            <div class="col-3 d-grid">
+              <button class="btn btn-outline-primary">Go</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Budget usage -->
+    <div class="col-lg-8">
+      <div class="pw-card">
+        <div class="card-header">
+          <i class="fa-solid fa-chart-simple me-2 text-primary"></i>Budget usage — {{ month_name }}
+        </div>
+        <div class="card-body">
+          {% if budgets %}
+            {% for b in budgets %}
+            <div class="mb-4">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold"><span class="badge badge-cat rounded-pill me-2">{{ b.category }}</span></span>
+                <span>
+                  <span class="fw-bold amt-exp">{{ b.spent|inr }}</span>
+                  <span class="text-muted">/ {{ b.limit|inr }}</span>
+                </span>
+              </div>
+              <div class="budget-bar">
+                <div class="fill {{ 'fill-over' if b.exceeded else ('fill-warn' if b.pct > 80 else 'fill-ok') }}"
+                     style="width: {{ [b.pct, 100]|min }}%;"></div>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mt-1">
+                <small class="{{ 'text-danger fw-bold' if b.exceeded else ('text-warning fw-bold' if b.pct > 80 else 'text-muted') }}">
+                  {{ b.pct }}% used
+                  {% if b.exceeded %} — <i class="fa-solid fa-circle-exclamation"></i> budget exceeded by {{ (-b.remaining)|inr }}!
+                  {% elif b.pct > 80 %} — <i class="fa-solid fa-triangle-exclamation"></i> nearing limit
+                  {% else %} — {{ b.remaining|inr }} remaining{% endif %}
+                </small>
+                <span>
+                  <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editBudget{{ b.id }}">
+                    <i class="fa-solid fa-pen me-1"></i>Edit
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#delBudget{{ b.id }}">
+                    <i class="fa-solid fa-trash me-1"></i>Delete
+                  </button>
+                </span>
+              </div>
+
+              <!-- Edit modal -->
+              <div class="modal fade" id="editBudget{{ b.id }}" tabindex="-1">
+                <div class="modal-dialog modal-sm">
+                  <form method="POST" action="{{ url_for('budgets.edit', budget_id=b.id) }}" class="modal-content">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Edit {{ b.category }} budget</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <label class="form-label fw-semibold">Monthly limit (₹)</label>
+                      <input type="number" name="monthly_limit" class="form-control" step="0.01" min="0.01"
+                             value="{{ '%.2f' % b.limit }}" required>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                      <button class="btn btn-primary">Save</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              <!-- Delete modal -->
+              <div class="modal fade" id="delBudget{{ b.id }}" tabindex="-1">
+                <div class="modal-dialog modal-sm">
+                  <form method="POST" action="{{ url_for('budgets.delete', budget_id=b.id) }}" class="modal-content">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="modal-header"><h5 class="modal-title">Delete budget?</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body"><p class="mb-0">Delete the {{ b.category }} budget for {{ month_name }}?</p></div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                      <button class="btn btn-danger">Delete</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="empty-state">
+            <i class="fa-solid fa-bullseye"></i>
+            No budgets set for {{ month_name }}. Use the form to create one.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
